@@ -1,0 +1,231 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Create Product{% endblock %}
+{% block page_title %}Create New Product{% endblock %}
+
+{% block extra_css %}
+<style>
+    .preview-image {
+        max-width: 150px;
+        max-height: 150px;
+        margin-top: 10px;
+    }
+
+    .variant-form {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Product Information</h5>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('product_create') }}" method="post" enctype="multipart/form-data">
+            <div class="row">
+                <!-- Basic Info -->
+                <div class="col-md-6">
+                    <h5 class="border-bottom pb-2">Basic Information</h5>
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name (English) *</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="name_bn" class="form-label">Name (Bangla)</label>
+                        <input type="text" class="form-control" id="name_bn" name="name_bn">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="category_id" class="form-label">Category *</label>
+                        <select class="form-select" id="category_id" name="category_id" required>
+                            <option value="">Select Category</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="price" class="form-label">Price *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="price"
+                                        name="price" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="stock" class="form-label">Stock *</label>
+                                <input type="number" min="0" class="form-control" id="stock" name="stock" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="col-md-6">
+                    <h5 class="border-bottom pb-2">Description</h5>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (English)</label>
+                        <textarea class="form-control" id="description" name="description" rows="5"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description_bn" class="form-label">Description (Bangla)</label>
+                        <textarea class="form-control" id="description_bn" name="description_bn" rows="5"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Images -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h5 class="border-bottom pb-2">Product Images</h5>
+                    <div class="mb-3">
+                        <label for="images" class="form-label">Upload Images</label>
+                        <input class="form-control" type="file" id="images" name="images" multiple accept="image/*">
+                        <small class="text-muted">You can select multiple images. The first image will be set as the
+                            primary image.</small>
+                        <div id="imagePreview" class="d-flex flex-wrap gap-2 mt-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Variants -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h5 class="border-bottom pb-2">
+                        Product Variants
+                        <button type="button" id="addVariantBtn" class="btn btn-sm btn-outline-primary float-end">
+                            <i class="fas fa-plus"></i> Add Variant
+                        </button>
+                    </h5>
+
+                    <div id="variantsContainer">
+                        <!-- Variant forms will be added here -->
+                    </div>
+
+                    <input type="hidden" id="variant_count" name="variant_count" value="0">
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{{ url_for('product_list') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Create Product</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Image preview functionality
+    document.getElementById('images').addEventListener('change', function (event) {
+        const preview = document.getElementById('imagePreview');
+        preview.innerHTML = '';
+
+        const files = event.target.files;
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (!file.type.startsWith('image/')) continue;
+
+            const img = document.createElement('img');
+            img.classList.add('preview-image', 'img-thumbnail', 'me-2');
+            img.file = file;
+            preview.appendChild(img);
+
+            const reader = new FileReader();
+            reader.onload = (function (aImg) {
+                return function (e) {
+                    aImg.src = e.target.result;
+                };
+            })(img);
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Variant functionality
+    let variantCount = 0;
+
+    document.getElementById('addVariantBtn').addEventListener('click', function () {
+        const container = document.getElementById('variantsContainer');
+        const variantForm = document.createElement('div');
+        variantForm.classList.add('variant-form');
+        variantForm.id = `variant-${variantCount}`;
+
+        variantForm.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Variant #${variantCount + 1}</h6>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-variant" data-id="${variantCount}">
+                    <i class="fas fa-times"></i> Remove
+                </button>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Color</label>
+                        <input type="text" class="form-control" name="variant_color_${variantCount}" placeholder="Red, Blue, etc.">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Size</label>
+                        <input type="text" class="form-control" name="variant_size_${variantCount}" placeholder="S, M, L, XL, etc.">
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">SKU</label>
+                        <input type="text" class="form-control" name="variant_sku_${variantCount}" placeholder="SKU-12345">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Stock</label>
+                        <input type="number" min="0" class="form-control" name="variant_stock_${variantCount}" value="0">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Price Adjustment</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" class="form-control" name="variant_price_adjustment_${variantCount}" value="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.appendChild(variantForm);
+
+        // Update variant counter
+        variantCount++;
+        document.getElementById('variant_count').value = variantCount;
+
+        // Add event listener to remove button
+        variantForm.querySelector('.remove-variant').addEventListener('click', function () {
+            const variantId = this.getAttribute('data-id');
+            document.getElementById(`variant-${variantId}`).remove();
+
+            // Recalculate variant count
+            const remainingVariants = document.querySelectorAll('.variant-form').length;
+            document.getElementById('variant_count').value = remainingVariants;
+        });
+    });
+</script>
+{% endblock %}

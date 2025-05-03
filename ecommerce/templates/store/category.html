@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ category.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ category.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ category.name }}</h1>
+            {% if category.name_bn %}
+            <h2 class="text-muted h4">{{ category.name_bn }}</h2>
+            {% endif %}
+            {% if category.description %}
+            <p class="lead">{{ category.description }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        {% for product in products %}
+        <div class="col-md-3">
+            <div class="card h-100">
+                {% set primary_image = none %}
+                {% for image in product.images %}
+                {% if image.is_primary %}
+                {% set primary_image = image %}
+                {% endif %}
+                {% endfor %}
+
+                {% if primary_image %}
+                <img src="{{ url_for('static', filename='uploads/' + primary_image.filename) }}" class="card-img-top"
+                    alt="{{ product.name }}" style="height: 200px; object-fit: cover;">
+                {% endif %}
+
+                <div class="card-body">
+                    <h5 class="card-title">{{ product.name }}</h5>
+                    {% if product.name_bn %}
+                    <h6 class="card-subtitle mb-2 text-muted">{{ product.name_bn }}</h6>
+                    {% endif %}
+                    <p class="card-text text-primary fw-bold">${{ "%.2f"|format(product.price) }}</p>
+                    <p class="card-text">{{ product.description|truncate(100) }}</p>
+                    <a href="{{ url_for('product_detail', id=product.id) }}" class="btn btn-primary">
+                        View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col">
+            <p class="text-center">No products found in this category.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

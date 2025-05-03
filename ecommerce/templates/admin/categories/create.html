@@ -1,0 +1,33 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Create Category{% endblock %}
+{% block page_title %}Create New Category{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Category Information</h5>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('category_create') }}" method="post">
+            <div class="mb-3">
+                <label for="name" class="form-label">Name (English) *</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div class="mb-3">
+                <label for="name_bn" class="form-label">Name (Bangla)</label>
+                <input type="text" class="form-control" id="name_bn" name="name_bn">
+                <small class="text-muted">Optional, but recommended for bilingual support</small>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+            </div>
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('category_list') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Create Category</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

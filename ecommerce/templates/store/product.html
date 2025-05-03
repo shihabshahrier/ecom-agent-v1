@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css">
+<style>
+    .product-image {
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .product-image:hover {
+        transform: scale(1.05);
+    }
+    .variant-select {
+        min-width: 120px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('category_products', id=product.category_id) }}">
+                    {{ product.category.name }}
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Product Images -->
+        <div class="col-md-6 mb-4">
+            <div class="row">
+                {% for image in product.images %}
+                <div class="col-6 mb-4">
+                    <a href="{{ url_for('static', filename='uploads/' + image.filename) }}" 
+                       data-lightbox="product-images" 
+                       data-title="{{ product.name }}">
+                        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}"
+                            class="img-fluid rounded product-image" alt="{{ product.name }}">
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Product Details -->
+        <div class="col-md-6">
+            <h1>{{ product.name }}</h1>
+            {% if product.name_bn %}
+            <h2 class="text-muted h4">{{ product.name_bn }}</h2>
+            {% endif %}
+
+            <div class="mb-4">
+                <h3 class="text-primary">${{ "%.2f"|format(product.price) }}</h3>
+                <p class="text-muted">
+                    Category: 
+                    <a href="{{ url_for('category_products', id=product.category_id) }}">
+                        {{ product.category.name }}
+                    </a>
+                </p>
+            </div>
+
+            {% if product.variants %}
+            <div class="mb-4">
+                <h4>Available Variants</h4>
+                <div class="row g-3">
+                    {% set colors = [] %}
+                    {% set sizes = [] %}
+                    {% for variant in product.variants %}
+                        {% if variant.color and variant.color not in colors %}
+                            {% set colors = colors + [variant.color] %}
+                        {% endif %}
+                        {% if variant.size and variant.size not in sizes %}
+                            {% set sizes = sizes + [variant.size] %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if colors %}
+                    <div class="col-auto">
+                        <select class="form-select variant-select" id="color">
+                            <option value="">Select Color</option>
+                            {% for color in colors %}
+                            <option value="{{ color }}">{{ color }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    {% if sizes %}
+                    <div class="col-auto">
+                        <select class="form-select variant-select" id="size">
+                            <option value="">Select Size</option>
+                            {% for size in sizes %}
+                            <option value="{{ size }}">{{ size }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="mb-4">
+                <button class="btn btn-primary btn-lg">Add to Cart</button>
+            </div>
+
+            <div class="mb-4">
+                <h4>Description</h4>
+                <p>{{ product.description }}</p>
+                {% if product.description_bn %}
+                <p class="text-muted">{{ product.description_bn }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox.min.js"></script>
+{% endblock %}

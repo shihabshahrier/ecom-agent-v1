@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -97,6 +97,41 @@ class ProductVariant(db.Model):
             'price_adjustment': self.price_adjustment
         }
 
+class CartItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    variant_id = db.Column(db.Integer, db.ForeignKey('product_variant.id'), nullable=True)
+    quantity = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    product = db.relationship('Product', backref='cart_items')
+    variant = db.relationship('ProductVariant', backref='cart_items')
+
+class Order(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(50), unique=True)
+    customer_name = db.Column(db.String(100))
+    customer_email = db.Column(db.String(100))
+    customer_phone = db.Column(db.String(20))
+    address = db.Column(db.Text)
+    total_amount = db.Column(db.Float)
+    status = db.Column(db.String(20), default='pending')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    items = db.relationship('OrderItem', backref='order', lazy=True)
+
+class OrderItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    variant_id = db.Column(db.Integer, db.ForeignKey('product_variant.id'), nullable=True)
+    quantity = db.Column(db.Integer, default=1)
+    price = db.Column(db.Float, nullable=False)
+    
+    # Add these relationships
+    product = db.relationship('Product', backref='order_items')
+    variant = db.relationship('ProductVariant', backref='order_items')
+
 # Helper functions
 def allowed_file(filename):
     return '.' in filename and \
@@ -114,7 +149,21 @@ def save_uploaded_file(file):
 # Routes - Admin Panel
 @app.route('/admin')
 def admin_dashboard():
-    return render_template('admin/dashboard.html')
+    # Get counts
+    products_count = Product.query.count()
+    categories_count = Category.query.count()
+    orders_count = Order.query.count()
+    
+    # Get recent products and orders
+    recent_products = Product.query.order_by(Product.created_at.desc()).limit(5).all()
+    recent_orders = Order.query.order_by(Order.created_at.desc()).limit(5).all()
+    
+    return render_template('admin/dashboard.html', 
+                         products_count=products_count,
+                         categories_count=categories_count,
+                         orders_count=orders_count,
+                         recent_products=recent_products,
+                         recent_orders=recent_orders)
 
 # Category Management
 @app.route('/admin/categories')
@@ -321,6 +370,27 @@ def product_delete(id):
     flash('Product deleted successfully', 'success')
     return redirect(url_for('product_list'))
 
+# Add after existing admin routes
+@app.route('/admin/orders')
+def admin_orders():
+    orders = Order.query.order_by(Order.created_at.desc()).all()
+    return render_template('admin/orders/list.html', orders=orders)
+
+@app.route('/admin/orders/<int:id>')
+def admin_order_detail(id):
+    order = Order.query.get_or_404(id)
+    return render_template('admin/orders/detail.html', order=order)
+
+@app.route('/admin/orders/<int:id>/status', methods=['POST'])
+def admin_order_status(id):
+    order = Order.query.get_or_404(id)
+    status = request.form.get('status')
+    if status in ['pending', 'processing', 'shipped', 'delivered']:
+        order.status = status
+        db.session.commit()
+        flash('Order status updated successfully', 'success')
+    return redirect(url_for('admin_order_detail', id=order.id))
+
 # API Routes
 @app.route('/api/categories', methods=['GET'])
 def api_categories():
@@ -360,6 +430,117 @@ def category_products(id):
 def product_detail(id):
     product = Product.query.get_or_404(id)
     return render_template('store/product.html', product=product)
+
+@app.before_request
+def before_request():
+    if 'cart_id' not in session:
+        session['cart_id'] = str(uuid.uuid4())
+
+@app.route('/cart/add/<int:product_id>', methods=['POST'])
+def add_to_cart(product_id):
+    product = Product.query.get_or_404(product_id)
+    variant_id = request.form.get('variant_id')
+    quantity = int(request.form.get('quantity', 1))
+    
+    cart_item = CartItem.query.filter_by(
+        session_id=session['cart_id'],
+        product_id=product_id,
+        variant_id=variant_id
+    ).first()
+    
+    if cart_item:
+        cart_item.quantity += quantity
+    else:
+        cart_item = CartItem(
+            session_id=session['cart_id'],
+            product_id=product_id,
+            variant_id=variant_id,
+            quantity=quantity
+        )
+        db.session.add(cart_item)
+    
+    db.session.commit()
+    flash('Product added to cart', 'success')
+    return redirect(url_for('cart_view'))
+
+@app.route('/cart')
+def cart_view():
+    cart_items = CartItem.query.filter_by(session_id=session['cart_id']).all()
+    total = sum(item.product.price * item.quantity for item in cart_items)
+    return render_template('store/cart.html', cart_items=cart_items, total=total)
+
+@app.route('/checkout', methods=['GET', 'POST'])
+def checkout():
+    if request.method == 'POST':
+        cart_items = CartItem.query.filter_by(session_id=session['cart_id']).all()
+        if not cart_items:
+            flash('Your cart is empty', 'error')
+            return redirect(url_for('cart_view'))
+        
+        # Create order
+        order = Order(
+            order_number=f'ORD-{datetime.now().strftime("%Y%m%d")}-{uuid.uuid4().hex[:6].upper()}',
+            customer_name=request.form['name'],
+            customer_email=request.form['email'],
+            customer_phone=request.form['phone'],
+            address=request.form['address'],
+            total_amount=sum(item.product.price * item.quantity for item in cart_items)
+        )
+        db.session.add(order)
+        
+        # Create order items
+        for cart_item in cart_items:
+            order_item = OrderItem(
+                order=order,
+                product_id=cart_item.product_id,
+                variant_id=cart_item.variant_id,
+                quantity=cart_item.quantity,
+                price=cart_item.product.price
+            )
+            db.session.add(order_item)
+        
+        # Clear cart
+        CartItem.query.filter_by(session_id=session['cart_id']).delete()
+        db.session.commit()
+        
+        return redirect(url_for('order_complete', order_id=order.id))
+    
+    cart_items = CartItem.query.filter_by(session_id=session['cart_id']).all()
+    total = sum(item.product.price * item.quantity for item in cart_items)
+    return render_template('store/checkout.html', cart_items=cart_items, total=total)
+
+@app.route('/order/<int:order_id>')
+def order_complete(order_id):
+    order = Order.query.get_or_404(order_id)
+    return render_template('store/order_complete.html', order=order)
+
+# Add these new routes
+@app.route('/cart/update/<int:item_id>', methods=['POST'])
+def update_cart(item_id):
+    cart_item = CartItem.query.get_or_404(item_id)
+    if cart_item.session_id != session['cart_id']:
+        flash('Invalid cart item', 'error')
+        return redirect(url_for('cart_view'))
+    
+    quantity = int(request.form.get('quantity', 1))
+    if quantity > 0:
+        cart_item.quantity = quantity
+        db.session.commit()
+        flash('Cart updated', 'success')
+    
+    return redirect(url_for('cart_view'))
+
+@app.route('/cart/remove/<int:item_id>', methods=['POST'])
+def remove_from_cart(item_id):
+    cart_item = CartItem.query.get_or_404(item_id)
+    if cart_item.session_id != session['cart_id']:
+        flash('Invalid cart item', 'error')
+        return redirect(url_for('cart_view'))
+    
+    db.session.delete(cart_item)
+    db.session.commit()
+    flash('Item removed from cart', 'success')
+    return redirect(url_for('cart_view'))
 
 # Initialize the database
 with app.app_context():

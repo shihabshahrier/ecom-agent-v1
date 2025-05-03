@@ -107,7 +107,18 @@
             {% endif %}
 
             <div class="mb-4">
-                <button class="btn btn-primary btn-lg">Add to Cart</button>
+                <form action="{{ url_for('add_to_cart', product_id=product.id) }}" method="post">
+                    <div class="row g-3 align-items-center mb-3">
+                        <div class="col-auto">
+                            <label for="quantity" class="form-label">Quantity:</label>
+                            <input type="number" class="form-control" id="quantity" name="quantity" value="1" min="1">
+                        </div>
+                        {% if product.variants %}
+                            <input type="hidden" name="variant_id" id="variant_id">
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg">Add to Cart</button>
+                </form>
             </div>
 
             <div class="mb-4">

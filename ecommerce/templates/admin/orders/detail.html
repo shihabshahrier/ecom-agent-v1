@@ -1,0 +1,80 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Order Details{% endblock %}
+{% block page_title %}Order #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Order Details</h5>
+            <span class="badge bg-{{ order.status|lower }}">{{ order.status|title }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-sm-6">
+                <h6 class="mb-3">Customer Information:</h6>
+                <div>
+                    <strong>{{ order.customer_name }}</strong><br>
+                    Email: {{ order.customer_email }}<br>
+                    Phone: {{ order.customer_phone }}<br>
+                    Address: {{ order.address }}
+                </div>
+            </div>
+            <div class="col-sm-6 text-sm-end">
+                <h6 class="mb-3">Order Information:</h6>
+                <div>
+                    Order Number: {{ order.order_number }}<br>
+                    Date: {{ order.created_at.strftime('%Y-%m-%d %H:%M') }}<br>
+                    Status: {{ order.status|title }}
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Variant</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order.items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>
+                            {% if item.variant %}
+                                {{ item.variant.color }} - {{ item.variant.size }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>${{ "%.2f"|format(item.price) }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>${{ "%.2f"|format(item.price * item.quantity) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-end"><strong>Total Amount:</strong></td>
+                        <td><strong>${{ "%.2f"|format(order.total_amount) }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="mt-4">
+            <a href="{{ url_for('admin_orders') }}" class="btn btn-secondary">Back to Orders</a>
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="fas fa-print"></i> Print Invoice
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Orders{% endblock %}
+{% block page_title %}Orders{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">All Orders</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Order Number</th>
+                        <th>Customer</th>
+                        <th>Total Amount</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>{{ order.order_number }}</td>
+                        <td>{{ order.customer_name }}</td>
+                        <td>${{ "%.2f"|format(order.total_amount) }}</td>
+                        <td>
+                            <span class="badge bg-{{ order.status|lower }}">
+                                {{ order.status|title }}
+                            </span>
+                        </td>
+                        <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('admin_order_detail', id=order.id) }}" 
+                                   class="btn btn-primary">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-success dropdown-toggle"
+                                        data-bs-toggle="dropdown">
+                                    Update Status
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <form action="{{ url_for('admin_order_status', id=order.id) }}" method="post">
+                                            <input type="hidden" name="status" value="pending">
+                                            <button type="submit" class="dropdown-item">Pending</button>
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form action="{{ url_for('admin_order_status', id=order.id) }}" method="post">
+                                            <input type="hidden" name="status" value="processing">
+                                            <button type="submit" class="dropdown-item">Processing</button>
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form action="{{ url_for('admin_order_status', id=order.id) }}" method="post">
+                                            <input type="hidden" name="status" value="shipped">
+                                            <button type="submit" class="dropdown-item">Shipped</button>
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form action="{{ url_for('admin_order_status', id=order.id) }}" method="post">
+                                            <input type="hidden" name="status" value="delivered">
+                                            <button type="submit" class="dropdown-item">Delivered</button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">No orders found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

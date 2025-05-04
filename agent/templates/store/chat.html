@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+{% block title %}Customer Support Chat - E-Shop{% endblock %}
+{% block content %}
+<div class="row h-100">
+    <div class="col-md-8 col-lg-9 chat-container" id="chatContainer">
+        <div id="welcomeMessage" class="message ai-message">
+            <div class="d-flex align-items-center mb-1">
+                <i class="bi bi-robot me-2"></i>
+                <strong>E-Shop Assistant</strong>
+                <span class="language-badge bg-info text-white ms-2">English</span>
+            </div>
+            <div class="message-content">
+                Welcome to E-Shop Customer Support! I can help you find products, answer questions about our store, and
+                assist with placing orders. How can I help you today?
+            </div>
+        </div>
+        <div id="typingIndicator" class="message ai-message" style="display: none;">
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 col-lg-3 border-start p-3">
+        <div class="sidebar-content">
+            <h5>Quick Actions</h5>
+            <div class="list-group mb-4">
+                <button class="list-group-item list-group-item-action"
+                    onclick="sendQuickMessage('Show me all product categories')">
+                    <i class="bi bi-grid me-2"></i> Browse Categories
+                </button>
+                <button class="list-group-item list-group-item-action"
+                    onclick="sendQuickMessage('What are your best-selling products?')">
+                    <i class="bi bi-star me-2"></i> Best Sellers
+                </button>
+                <button class="list-group-item list-group-item-action" onclick="sendQuickMessage('Show my cart')">
+                    <i class="bi bi-cart me-2"></i> View Cart
+                </button>
+                <button class="list-group-item list-group-item-action"
+                    onclick="sendQuickMessage('How can I place an order?')">
+                    <i class="bi bi-question-circle me-2"></i> How to Order
+                </button>
+            </div>
+
+            <h5>Try in Bengali</h5>
+            <div class="list-group">
+                <button class="list-group-item list-group-item-action"
+                    onclick="sendQuickMessage('আপনার কি পোশাক আছে?')">
+                    আপনার কি পোশাক আছে?
+                </button>
+                <button class="list-group-item list-group-item-action"
+                    onclick="sendQuickMessage('ইলেকট্রনিকস দেখতে চাই')">
+                    ইলেকট্রনিকস দেখতে চাই
+                </button>
+                <button class="list-group-item list-group-item-action" onclick="sendQuickMessage('আমার কার্ট দেখাও')">
+                    আমার কার্ট দেখাও
+                </button>
+            </div>
+
+            <div id="cartSummary" class="mt-4" style="display: none;">
+                <h5>Cart Summary</h5>
+                <div id="cartItems" class="small">
+                    <!-- Cart items will be added here dynamically -->
+                </div>
+                <div class="d-grid gap-2 mt-2">
+                    <button class="btn btn-primary btn-sm" onclick="sendQuickMessage('Checkout')">
+                        <i class="bi bi-bag-check me-1"></i> Checkout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="footer">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="userInput" placeholder="Type your message here..."
+                        aria-label="User message">
+                    <button class="btn btn-primary" type="button" id="sendButton">
+                        <i class="bi bi-send"></i> Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize variables
+    let conversationHistory = [];
+
+    // DOM Elements
+    const chatContainer = document.getElementById('chatContainer');
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+    const typingIndicator = document.getElementById('typingIndicator');
+    const cartSummary = document.getElementById('cartSummary');
+    const cartItems = document.getElementById('cartItems');
+
+    // Send message when button is clicked
+    sendButton.addEventListener('click', sendMessage);
+
+    // Send message when Enter key is pressed
+    userInput.addEventListener('keypress', function (event) {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    // Function to add a message to the chat container
+    function addMessage(message, isUser = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = isUser ? 'message user-message' : 'message ai-message';
+
+        // Create message header
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'd-flex align-items-center mb-1';
+
+        const icon = document.createElement('i');
+        icon.className = isUser ? 'bi bi-person-circle me-2' : 'bi bi-robot me-2';
+        headerDiv.appendChild(icon);
+
+        const name = document.createElement('strong');
+        name.textContent = isUser ? 'You' : 'E-Shop Assistant';
+        headerDiv.appendChild(name);
+
+        // Add language badge for AI messages if we can detect language
+        if (!isUser && message) {
+            const languageBadge = document.createElement('span');
+            languageBadge.className = 'language-badge ms-2 text-white';
+
+            // Simple language detection
+            if (/[\u0980-\u09FF]/.test(message)) {
+                languageBadge.textContent = 'Bengali';
+                languageBadge.classList.add('bg-success');
+            } else {
+                languageBadge.textContent = 'English';
+                languageBadge.classList.add('bg-info');
+            }
+
+            headerDiv.appendChild(languageBadge);
+        }
+
+        messageDiv.appendChild(headerDiv);
+
+        // Create message content
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.innerHTML = message; // Use innerHTML to allow HTML formatting
+        messageDiv.appendChild(contentDiv);
+
+        // Add to chat container
+        chatContainer.appendChild(messageDiv);
+
+        // Scroll to bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Function to send a message
+    function sendMessage() {
+        const message = userInput.value.trim();
+        if (message === '') return;
+
+        // Add user message to chat
+        addMessage(message, true);
+
+        // Store message in conversation history
+        conversationHistory.push({
+            role: 'user',
+            content: message
+        });
+
+        // Clear input field
+        userInput.value = '';
+
+        // Show typing indicator
+        typingIndicator.style.display = 'block';
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        // Send message to server
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: message,
+                conversation_history: conversationHistory
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+
+                // Add AI response to chat
+                addMessage(processResponseMessage(data.ai_message, data.result), false);
+
+                // Update conversation history
+                conversationHistory = data.conversation_history;
+
+                // Process the action result
+                handleActionResult(data.action, data.result);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                typingIndicator.style.display = 'none';
+                addMessage('Sorry, there was an error processing your request. Please try again.', false);
+            });
+    }
+
+    // Function to send a quick message (from sidebar buttons)
+    function sendQuickMessage(message) {
+        userInput.value = message;
+        sendMessage();
+    }
+
+    // Process response message for display
+    function processResponseMessage(message, result) {
+        // Check if the message contains product listings that might be hallucinated
+        if (result && Array.isArray(result) && result.length > 0 &&
+            (message.includes("Here are") || message.includes("I found"))) {
+
+            // Create a new message that only references actual products from the database
+            let newMessage = "Here are the products I found:";
+
+            // Don't include any specific product names in the text response
+            // The actual products will be displayed below in product cards
+
+            return newMessage;
+        }
+
+        // For product detail responses
+        if (result && result.id && message.includes(result.name)) {
+            // Remove any price hallucinations
+            const priceRegex = /\$\d+(\.\d+)?/g;
+            return message.replace(priceRegex, result.price);
+        }
+
+        return message;
+    }
+
+    // Handle different action results
+    function handleActionResult(action, result) {
+        if (!result) return;
+
+        switch (action) {
+            case 'search_products':
+                // Replace any hallucinated product list with actual products from database
+                const lastMessageContent = document.querySelector('.message.ai-message:last-child .message-content');
+                if (lastMessageContent) {
+                    // Remove numbered lists that might contain hallucinated products
+                    const listRegex = /\d+\.\s+[^<\n]+(\$\d+(\.\d+)?)[^\n]*/g;
+                    lastMessageContent.innerHTML = lastMessageContent.innerHTML.replace(listRegex, '');
+                }
+                appendProductsToLastMessage(result);
+                break;
+
+            case 'get_product_details':
+                // Replace any product details with actual data
+                const detailsMessageContent = document.querySelector('.message.ai-message:last-child .message-content');
+                if (detailsMessageContent && result) {
+                    // Remove potentially hallucinated price information
+                    const priceRegex = /\$\d+(\.\d+)?/g;
+                    detailsMessageContent.innerHTML = detailsMessageContent.innerHTML.replace(priceRegex, result.price);
+                }
+                appendProductDetailsToLastMessage(result);
+                break;
+
+            case 'add_to_cart':
+                if (result.success && result.cart) {
+                    updateCartSummary(result.cart);
+                }
+                break;
+
+            case 'get_cart':
+                updateCartSummary(result);
+                break;
+
+            case 'create_order':
+                if (result.order_id) {
+                    // Show order confirmation
+                    const confirmationMsg = `
+                        <div class="alert alert-success">
+                            <h5><i class="bi bi-check-circle"></i> Order Placed!</h5>
+                            <p>Order #${result.order_id} has been created successfully.</p>
+                        </div>
+                    `;
+                    appendToLastMessage(confirmationMsg);
+
+                    // Clear cart display
+                    cartSummary.style.display = 'none';
+                }
+                break;
+        }
+    }
+
+    // Append products to the last AI message
+    function appendProductsToLastMessage(products) {
+        if (!products || products.length === 0) return;
+
+        let productsHtml = '<div class="products-container mt-3">';
+
+        products.forEach(product => {
+            const price = product.price_bn && /[\u0980-\u09FF]/.test(conversationHistory[conversationHistory.length - 1].content)
+                ? product.price_bn
+                : product.price;
+
+            const name = product.name_bn && /[\u0980-\u09FF]/.test(conversationHistory[conversationHistory.length - 1].content)
+                ? product.name_bn
+                : product.name;
+
+            productsHtml += `
+                <div class="product-card">
+                    <div class="row g-0">
+                        <div class="col-3">
+                            <img src="${product.image || '/static/img/product-placeholder.jpg'}" class="product-img" alt="${name}">
+                        </div>
+                        <div class="col-9">
+                            <div class="card-body p-0 ps-2">
+                                <h6 class="card-title mb-1">${name}</h6>
+                                <p class="card-text mb-1"><strong>${price}</strong></p>
+                                <button class="btn btn-sm btn-outline-primary" onclick="sendQuickMessage('Show me details of ${product.id}')">
+                                    <i class="bi bi-info-circle"></i> Details
+                                </button>
+                                <button class="btn btn-sm btn-primary" onclick="sendQuickMessage('Add ${product.id} to cart')">
+                                    <i class="bi bi-cart-plus"></i> Add to Cart
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        productsHtml += '</div>';
+        appendToLastMessage(productsHtml);
+    }
+
+    // Append product details to the last AI message
+    function appendProductDetailsToLastMessage(product) {
+        if (!product) return;
+
+        // First, remove any references to products that don't match the actual product
+        const lastMessageContent = document.querySelector('.message.ai-message:last-child .message-content');
+        if (lastMessageContent) {
+            // Remove references to products not in our database
+            const productNameRegex = new RegExp(`(?:iPhone|Samsung|Galaxy|Xiaomi|Redmi)\\s*\\w+`, 'g');
+            lastMessageContent.innerHTML = lastMessageContent.innerHTML.replace(productNameRegex, product.name);
+        }
+
+        const isInBengali = /[\u0980-\u09FF]/.test(conversationHistory[conversationHistory.length - 1].content);
+
+        const name = isInBengali && product.name_bn ? product.name_bn : product.name;
+        const description = isInBengali && product.description_bn ? product.description_bn : product.description;
+        const price = isInBengali && product.price_bn ? product.price_bn : product.price;
+
+        const detailsHtml = `
+            <div class="product-details mt-3">
+                <div class="card">
+                    <div class="row g-0">
+                        <div class="col-md-4">
+                            <img src="${product.image || '/static/img/product-placeholder.jpg'}" class="img-fluid rounded-start" alt="${name}">
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card-body">
+                                <h5 class="card-title">${name}</h5>
+                                <p class="card-text">${description}</p>
+                                <p class="card-text"><strong>${price}</strong></p>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        ${isInBengali ? 'স্টক:' : 'In Stock:'} ${product.stock}
+                                    </small>
+                                </p>
+                                <button class="btn btn-primary" onclick="sendQuickMessage('Add ${product.id} to cart')">
+                                    <i class="bi bi-cart-plus"></i> ${isInBengali ? 'কার্টে যোগ করুন' : 'Add to Cart'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        appendToLastMessage(detailsHtml);
+    }
+
+    // Append content to the last AI message
+    function appendToLastMessage(content) {
+        const messages = chatContainer.querySelectorAll('.message');
+        const lastMessage = messages[messages.length - 1];
+
+        if (lastMessage && lastMessage.classList.contains('ai-message')) {
+            const contentDiv = lastMessage.querySelector('.message-content');
+            contentDiv.innerHTML += content;
+
+            // Scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    }
+
+    // Update cart summary in sidebar
+    function updateCartSummary(cart) {
+        if (!cart || !cart.items || cart.items.length === 0) {
+            cartSummary.style.display = 'none';
+            return;
+        }
+
+        let cartHtml = '';
+        let totalItems = 0;
+
+        cart.items.forEach(item => {
+            cartHtml += `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span>${item.quantity}x ${item.product_name}</span>
+                    <span>${item.total_price}</span>
+                </div>
+            `;
+            totalItems += item.quantity;
+        });
+
+        cartHtml += `<hr class="my-2">`;
+        cartHtml += `<div class="d-flex justify-content-between">
+            <strong>Total:</strong>
+            <strong>${cart.total}</strong>
+        </div>`;
+
+        cartItems.innerHTML = cartHtml;
+        cartSummary.style.display = 'block';
+    }
+
+    // Add a product lookup function to verify products before ordering
+    function verifyProduct(productName) {
+        // This function will check if a mentioned product actually exists in our database
+        return fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `Find products like ${productName}`,
+                conversation_history: []
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.result && Array.isArray(data.result) && data.result.length > 0) {
+                    // Return the first actual product from the database
+                    return data.result[0];
+                }
+                return null;
+            });
+    }
+
+    // Clean up order messages to ensure they only reference real products
+    function cleanupOrderMessage(message) {
+        // Extract the original product name mentioned
+        const productMatch = message.match(/Product:\s*([^,\n]+)/);
+        if (productMatch && productMatch[1]) {
+            const mentionedProduct = productMatch[1].trim();
+
+            // Verify this product against our database
+            verifyProduct(mentionedProduct).then(realProduct => {
+                if (realProduct && realProduct.name !== mentionedProduct) {
+                    // Replace the hallucinated product with the real one
+                    const orderMessages = document.querySelectorAll('.message.ai-message .message-content');
+                    orderMessages.forEach(msg => {
+                        if (msg.innerHTML.includes(mentionedProduct)) {
+                            msg.innerHTML = msg.innerHTML.replace(
+                                new RegExp(mentionedProduct, 'g'),
+                                realProduct.name
+                            );
+                            // Also fix price
+                            const priceRegex = /\$\d+(\.\d+)?/g;
+                            msg.innerHTML = msg.innerHTML.replace(
+                                priceRegex,
+                                realProduct.price
+                            );
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    // Monitor messages for order confirmations
+    const observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            if (mutation.type === 'childList' && mutation.addedNodes.length) {
+                mutation.addedNodes.forEach(node => {
+                    if (node.classList && node.classList.contains('message') &&
+                        node.classList.contains('ai-message')) {
+                        const content = node.querySelector('.message-content');
+                        if (content && content.innerHTML.includes('order') &&
+                            content.innerHTML.includes('Product:')) {
+                            cleanupOrderMessage(content.innerHTML);
+                        }
+                    }
+                });
+            }
+        });
+    });
+
+    observer.observe(chatContainer, { childList: true, subtree: true });
+
+    // Initialize the chat
+    window.addEventListener('load', function () {
+        // Check if there's a saved cart
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: 'Show my cart',
+                conversation_history: []
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.result && data.result.items && data.result.items.length > 0) {
+                    updateCartSummary(data.result);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking cart:', error);
+            });
+    });
+</script>
+{% endblock %}
